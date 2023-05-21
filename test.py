@@ -11,29 +11,30 @@ epoch_num = 300
 learning_rate = 0.005
 alpha = 0.005
 num_teachers = 10
-dataset='cifar10'
+dataset='cifar100'
 train_loader, test_loader = get_data_loader(batch_size, dataset)
+out_c = len(train_loader.dataset.classes)
 if (len(train_loader.dataset.data.shape) == 3):
     _, in_h, in_w = train_loader.dataset.data.shape
     in_c = 1
 else:
     _, in_h, in_w, in_c = train_loader.dataset.data.shape
-teachers = [Model(in_c, in_w, in_h).to(device) for _ in range(num_teachers)]
+teachers = [Model(in_c, in_w, in_h, out_c).to(device) for _ in range(num_teachers)]
 students = {
-    "l2-neg": Model(in_c, in_w, in_h).to(device),
-    "l1-neg": Model(in_c, in_w, in_h).to(device),
-    "fro-neg": Model(in_c, in_w, in_h).to(device),
-    "nuc-neg": Model(in_c, in_w, in_h).to(device),
-    "l2-recp": Model(in_c, in_w, in_h).to(device),
-    "l1-recp": Model(in_c, in_w, in_h).to(device),
-    "fro-recp": Model(in_c, in_w, in_h).to(device),
-    "nuc-recp": Model(in_c, in_w, in_h).to(device),
+    "l2-neg": Model(in_c, in_w, in_h, out_c).to(device),
+    "l1-neg": Model(in_c, in_w, in_h, out_c).to(device),
+    "fro-neg": Model(in_c, in_w, in_h, out_c).to(device),
+    "nuc-neg": Model(in_c, in_w, in_h, out_c).to(device),
+    "l2-recp": Model(in_c, in_w, in_h, out_c).to(device),
+    "l1-recp": Model(in_c, in_w, in_h, out_c).to(device),
+    "fro-recp": Model(in_c, in_w, in_h, out_c).to(device),
+    "nuc-recp": Model(in_c, in_w, in_h, out_c).to(device),
 }
 baselines = {
-    "default": Model(in_c, in_w, in_h).to(device),
-    "weight-decay": Model(in_c, in_w, in_h).to(device),
+    "default": Model(in_c, in_w, in_h, out_c).to(device),
+    "weight-decay": Model(in_c, in_w, in_h, out_c).to(device),
 }
-dir = f"params/{dataset}/alpha=={alpha}"
+dir = f"param/{dataset}/alpha=={alpha}"
 for i in range(num_teachers):
     teachers[i].load_state_dict(torch.load(f"{dir}/teacher{i}.pt"))
 
@@ -165,7 +166,7 @@ for t_idx in range(num_teachers):
 
 for s_name in students.keys():
     result["test-loss"][s_name] = stundet_test_losses[s_name]
-    result["test-accuracy"][s_name] = 100 * student_train_correct[s_name]
+    result["test-accuracy"][s_name] = 100 * student_test_correct[s_name]
     result["train-loss"][s_name] = student_train_losses[s_name]
     result["train-accuracy"][s_name] = 100 * student_train_correct[s_name]
 

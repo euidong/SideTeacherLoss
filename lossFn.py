@@ -9,7 +9,7 @@ class SideTeacherLoss:
         self.base_loss = base_loss
         self.alpha = alpha
         self.param_teachers = []
-        file_list = os.listdir('params')
+        file_list = os.listdir('param')
         if len(teachers) > 0:
             self.teachers = teachers
         else:

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 class Model(nn.Module):
-    def __init__(self, in_c=1, in_w=28, in_h=28):
+    def __init__(self, in_c=1, in_w=28, in_h=28, out_c=10):
         super(Model, self).__init__()
         self.layers = nn.Sequential(
             nn.Conv2d(in_c, 3, 3),
@@ -11,7 +11,7 @@ class Model(nn.Module):
             nn.Flatten(),
             nn.Linear((in_w - 6)*(in_h - 6)*6, 32*32),
             nn.ReLU(),
-            nn.Linear(32 * 32, 10),
+            nn.Linear(32 * 32, out_c),
         )
 
     def forward(self, x) -> torch.Tensor:
@@ -19,9 +19,9 @@ class Model(nn.Module):
         return output
     
     def save(self, prefix: str = 'model') -> None:
-        # get file list in params directory and get next index
+        # get file list in param directory and get next index
         
-        file_list = os.listdir('params')
+        file_list = os.listdir('param')
         max_idx = -1
         for file in file_list:
             try:
@@ -30,11 +30,11 @@ class Model(nn.Module):
             except:
                 continue
         idx = max_idx + 1
-        torch.save(self.state_dict(), f"params/{prefix}{idx}.pth")
+        torch.save(self.state_dict(), f"param/{prefix}{idx}.pth")
 
     def load(self, idx: int, prefix: str = 'model') -> None:
         try:
-            self.load_state_dict(torch.load(f"params/{prefix}{idx}.pth"))
+            self.load_state_dict(torch.load(f"param/{prefix}{idx}.pth"))
         except Exception as e:
             print(e)
             print(f"Can't load {prefix}{idx}.pth")

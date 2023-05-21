@@ -1,4 +1,10 @@
 __pycache__
-CIFAR10*
-*MNIST*
-params
+*DATASET*
+*_result.json
+
+param/cifar10/**
+param/cifar100/**
+param/fashion_mnist/**
+param/mnist/**
+
+!param/**/.gitkeep
