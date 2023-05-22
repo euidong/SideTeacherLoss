@@ -209,6 +209,12 @@ def main():
         torch.save(baseline.state_dict(), f"{dir}/{b_name}.pt")
     
     # 8. draw graph
+    dir = f"result/{args.dataset}/alpha=={args.alpha}"
+    try:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    except OSError:
+        print ('Error: Creating directory. ' +  dir)
     plt.figure(figsize=(20,20)) 
     for s_name in students.keys():
         plt.plot(student_result["train_loss"][s_name], label=f"{s_name} train loss")
@@ -234,6 +240,16 @@ def main():
     plt.legend()
     plt.savefig(f"{dir}/acc.png")
     
+    # 9. save loss, acc
+    for metric, m in student_result.items():
+        for s_name, s in m.items():
+            np.save(f"{dir}/{metric}_{s_name}.npy", s)
+    for metric, m in baseline_result.items():
+        for b_name, b in m.items():
+            np.save(f"{dir}/{metric}_{b_name}.npy", b)
+    for metric, m in teacher_result.items():
+        for t in range(args.num_teachers):
+            np.save(f"{dir}/{metric}_teacher{t}.npy", m[:, t])
     print("Done!")
 
 if __name__ == "__main__":

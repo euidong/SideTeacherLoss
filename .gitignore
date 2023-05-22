@@ -8,3 +8,11 @@ param/fashion_mnist/**
 param/mnist/**
 
 !param/**/.gitkeep
+
+
+result/cifar10/**
+result/cifar100/**
+result/fashion_mnist/**
+result/mnist/**
+
+!result/**/.gitkeep
