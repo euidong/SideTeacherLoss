@@ -59,14 +59,7 @@ def main():
 
     # 4. define optimizer and loss function
     teacher_optimizers = [optim.SGD(teachers[i].parameters(), lr=args.learning_rate)for i in range(args.num_teachers)]
-    student_optimizers = {s_name: optim.SGD(student.parameters(), lr=args.learning_rate) for s_name, student in students.items()}
-    baseline_optimizers = {
-        "default": optim.SGD(baselines["default"].parameters(), lr=args.learning_rate),
-        "weight-decay": optim.SGD(baselines["weight-decay"].parameters(), lr=args.learning_rate, weight_decay=args.alpha)
-    }
     teacher_loss_fn = torch.nn.CrossEntropyLoss()
-    student_loss_fns = {s_name: SideTeacherLoss(student, torch.nn.CrossEntropyLoss(), device, alpha=args.alpha, teachers=teachers,dist=s_name) for s_name, student in students.items()}
-    baseline_loss_fn = torch.nn.CrossEntropyLoss()
 
     # 5. train teacher
     tot_batch_num = len(train_loader)
@@ -115,6 +108,15 @@ def main():
     
   
     # 6. train student, base_model, weight_decay_model
+    student_optimizers = {s_name: optim.SGD(student.parameters(), lr=args.learning_rate) for s_name, student in students.items()}
+    baseline_optimizers = {
+        "default": optim.SGD(baselines["default"].parameters(), lr=args.learning_rate),
+        "weight-decay": optim.SGD(baselines["weight-decay"].parameters(), lr=args.learning_rate, weight_decay=args.alpha)
+    }
+    
+    student_loss_fns = {s_name: SideTeacherLoss(student, torch.nn.CrossEntropyLoss(), device, alpha=args.alpha, teachers=teachers,dist=s_name) for s_name, student in students.items()}
+    baseline_loss_fn = torch.nn.CrossEntropyLoss()
+
     student_result = {
         "train_loss": {s_name: np.zeros(args.epoch_num // 10 + 1) for s_name in students.keys()},
         "train_acc": {s_name: np.zeros(args.epoch_num // 10 + 1) for s_name in students.keys()},
@@ -152,6 +154,7 @@ def main():
                 baseline_optimizers[b_name].step()
                 baseline_losses[b_name] += loss.item()
                 baseline_tf[b_name] += (pred.argmax(1) == y).type(torch.float).sum().item()
+            print(f'Epoch {epoch} batch {cur_batch_num}=====================================')
 
         print(f'Epoch {epoch}=====================================')
         for s_name in students.keys():

@@ -12,6 +12,12 @@ class SideTeacherLoss:
         file_list = os.listdir('param')
         if len(teachers) > 0:
             self.teachers = teachers
+            for t in self.teachers:
+                param = []
+                for p in t.parameters():
+                    p.requires_grad = False
+                    param.append(p)
+                self.param_teachers.append(param)
         else:
             self.teachers = []
             idx = 0
@@ -44,7 +50,10 @@ class SideTeacherLoss:
         cnt = 0
         for s_p in self.student.parameters():
             for t_ps in self.param_teachers:
-                loss += self.alpha * self.regularizers[self.dist](s_p, t_ps[cnt])
+                if "nuc" in self.dist and len(s_p.shape) != 2:
+                    loss += self.alpha * self.regularizers[self.dist](s_p.view(s_p.shape[0], -1), t_ps[cnt].view(t_ps[cnt].shape[0], -1))
+                else:
+                    loss += self.alpha * self.regularizers[self.dist](s_p, t_ps[cnt])
             cnt += 1
         return loss
     
