@@ -16,7 +16,7 @@ parser.add_argument('--dataset', type=str, default='mnist', help='dataset name(y
 parser.add_argument('--alpha', type=float, default=0.005, help='alpha value[default: 0.005]')
 parser.add_argument('--num_teachers', type=int, default=10, help='number of teachers[default: 10]')
 parser.add_argument('--batch_size', type=int, default=64, help='batch size[default: 64]')
-parser.add_argument('--epoch_num', type=int, default=301, help='epoch number[default: 300]')
+parser.add_argument('--epoch_num', type=int, default=101, help='epoch number[default: 101]')
 parser.add_argument('--learning_rate', type=float, default=0.005, help='learning rate[default: 0.005]')
 args = parser.parse_args()
 
@@ -46,11 +46,11 @@ def main():
         "l2-neg": Model(in_c, in_w, in_h, out_c).to(device),
         "l1-neg": Model(in_c, in_w, in_h, out_c).to(device),
         "fro-neg": Model(in_c, in_w, in_h, out_c).to(device),
-        "nuc-neg": Model(in_c, in_w, in_h, out_c).to(device),
+        # "nuc-neg": Model(in_c, in_w, in_h, out_c).to(device),
         "l2-recp": Model(in_c, in_w, in_h, out_c).to(device),
         "l1-recp": Model(in_c, in_w, in_h, out_c).to(device),
         "fro-recp": Model(in_c, in_w, in_h, out_c).to(device),
-        "nuc-recp": Model(in_c, in_w, in_h, out_c).to(device),
+        # "nuc-recp": Model(in_c, in_w, in_h, out_c).to(device),
     }
     baselines = {
         "default": Model(in_c, in_w, in_h, out_c).to(device),
@@ -65,10 +65,10 @@ def main():
     tot_batch_num = len(train_loader)
     teacher_batch_num = tot_batch_num // args.num_teachers
     teacher_result = {
-        "train_loss": np.zeros((args.epoch_num // 10 + 1, args.num_teachers)),
-        "train_acc": np.zeros((args.epoch_num // 10 + 1, args.num_teachers)),
-        "test_loss": np.zeros((args.epoch_num // 10 + 1, args.num_teachers)),
-        "test_acc": np.zeros((args.epoch_num // 10 + 1, args.num_teachers)),
+        "train_loss": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
+        "train_acc": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
+        "test_loss": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
+        "test_acc": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
     }
     for epoch in range(args.epoch_num):
         epoch_losses = np.zeros(args.num_teachers)
@@ -88,9 +88,9 @@ def main():
         print(f'Epoch {epoch}=====================================')
         for teacher_idx in range(args.num_teachers):
             print(f'teacher {teacher_idx} loss: {epoch_losses[teacher_idx] / (teacher_batch_num * args.batch_size):.6f} acc: {epoch_tf[teacher_idx] / (teacher_batch_num * args.batch_size):.6f}')
-        if epoch % 10 == 0:
-            teacher_result["train_loss"][epoch // 10] = epoch_losses / (teacher_batch_num * args.batch_size)
-            teacher_result["train_acc"][epoch // 10] = epoch_tf / (teacher_batch_num * args.batch_size)
+        if epoch % 5 == 0:
+            teacher_result["train_loss"][epoch // 5] = epoch_losses / (teacher_batch_num * args.batch_size)
+            teacher_result["train_acc"][epoch // 5] = epoch_tf / (teacher_batch_num * args.batch_size)
             # test 수행
             losses = np.zeros(args.num_teachers)
             tf = np.zeros(args.num_teachers)
@@ -103,8 +103,8 @@ def main():
                         loss = teacher_loss_fn(pred, y)
                         losses[teacher_idx] += loss.item()
                         tf[teacher_idx] += (pred.argmax(1) == y).type(torch.float).sum().item()
-            teacher_result["test_loss"][epoch // 10] = losses / (test_batch_num * args.batch_size)
-            teacher_result["test_acc"][epoch // 10] = tf / (test_batch_num * args.batch_size)
+            teacher_result["test_loss"][epoch // 5] = losses / (test_batch_num * args.batch_size)
+            teacher_result["test_acc"][epoch // 5] = tf / (test_batch_num * args.batch_size)
     
   
     # 6. train student, base_model, weight_decay_model
@@ -118,16 +118,16 @@ def main():
     baseline_loss_fn = torch.nn.CrossEntropyLoss()
 
     student_result = {
-        "train_loss": {s_name: np.zeros(args.epoch_num // 10 + 1) for s_name in students.keys()},
-        "train_acc": {s_name: np.zeros(args.epoch_num // 10 + 1) for s_name in students.keys()},
-        "test_loss": {s_name: np.zeros(args.epoch_num // 10 + 1) for s_name in students.keys()},
-        "test_acc": {s_name: np.zeros(args.epoch_num // 10 + 1) for s_name in students.keys()},
+        "train_loss": {s_name: np.zeros(args.epoch_num // 5 + 1) for s_name in students.keys()},
+        "train_acc": {s_name: np.zeros(args.epoch_num // 5 + 1) for s_name in students.keys()},
+        "test_loss": {s_name: np.zeros(args.epoch_num // 5 + 1) for s_name in students.keys()},
+        "test_acc": {s_name: np.zeros(args.epoch_num // 5 + 1) for s_name in students.keys()},
     }
     baseline_result = {
-        "train_loss": {b_name: np.zeros(args.epoch_num // 10 + 1) for b_name in baselines.keys()},
-        "train_acc": {b_name: np.zeros(args.epoch_num // 10 + 1) for b_name in baselines.keys()},
-        "test_loss": {b_name: np.zeros(args.epoch_num // 10 + 1) for b_name in baselines.keys()},
-        "test_acc": {b_name: np.zeros(args.epoch_num // 10 + 1) for b_name in baselines.keys()},
+        "train_loss": {b_name: np.zeros(args.epoch_num // 5 + 1) for b_name in baselines.keys()},
+        "train_acc": {b_name: np.zeros(args.epoch_num // 5 + 1) for b_name in baselines.keys()},
+        "test_loss": {b_name: np.zeros(args.epoch_num // 5 + 1) for b_name in baselines.keys()},
+        "test_acc": {b_name: np.zeros(args.epoch_num // 5 + 1) for b_name in baselines.keys()},
     }
     
     batch_num = len(train_loader)
@@ -154,20 +154,18 @@ def main():
                 baseline_optimizers[b_name].step()
                 baseline_losses[b_name] += loss.item()
                 baseline_tf[b_name] += (pred.argmax(1) == y).type(torch.float).sum().item()
-            print(f'Epoch {epoch} batch {cur_batch_num}=====================================')
-
         print(f'Epoch {epoch}=====================================')
         for s_name in students.keys():
             print(f'student {s_name} loss: {student_losses[s_name] / (batch_num * args.batch_size):.6f} acc: {student_tf[s_name] / (batch_num * args.batch_size):.6f}')
         for b_name in baselines.keys():
             print(f'baseline {b_name} loss: {baseline_losses[b_name] / (batch_num * args.batch_size):.6f} acc: {baseline_tf[b_name] / (batch_num * args.batch_size):.6f}')
-        if epoch % 10 == 0:
+        if epoch % 5 == 0:
             for s_name in students.keys():
-                student_result["train_loss"][s_name][epoch // 10] = student_losses[s_name] / (batch_num * args.batch_size)
-                student_result["train_acc"][s_name][epoch // 10] = student_tf[s_name] / (batch_num * args.batch_size)
+                student_result["train_loss"][s_name][epoch // 5] = student_losses[s_name] / (batch_num * args.batch_size)
+                student_result["train_acc"][s_name][epoch // 5] = student_tf[s_name] / (batch_num * args.batch_size)
             for b_name in baselines.keys():
-                baseline_result["train_loss"][b_name][epoch // 10] = baseline_losses[b_name] / (batch_num * args.batch_size)
-                baseline_result["train_acc"][b_name][epoch // 10] = baseline_tf[b_name] / (batch_num * args.batch_size)
+                baseline_result["train_loss"][b_name][epoch // 5] = baseline_losses[b_name] / (batch_num * args.batch_size)
+                baseline_result["train_acc"][b_name][epoch // 5] = baseline_tf[b_name] / (batch_num * args.batch_size)
             # test 수행
             s_losses = {s_name: 0 for s_name in students.keys()}
             s_tf = {s_name: 0 for s_name in students.keys()}
@@ -188,11 +186,11 @@ def main():
                         b_losses[b_name] += loss.item()
                         b_tf[b_name] += (pred.argmax(1) == y).type(torch.float).sum().item()
             for s_name in students.keys():
-                student_result["test_loss"][s_name][epoch // 10] = s_losses[s_name] / (test_batch_num * args.batch_size)
-                student_result["test_acc"][s_name][epoch // 10] = s_tf[s_name] / (test_batch_num * args.batch_size)
+                student_result["test_loss"][s_name][epoch // 5] = s_losses[s_name] / (test_batch_num * args.batch_size)
+                student_result["test_acc"][s_name][epoch // 5] = s_tf[s_name] / (test_batch_num * args.batch_size)
             for b_name in baselines.keys():
-                baseline_result["test_loss"][b_name][epoch // 10] = b_losses[b_name] / (test_batch_num * args.batch_size)
-                baseline_result["test_acc"][b_name][epoch // 10] = b_tf[b_name] / (test_batch_num * args.batch_size)
+                baseline_result["test_loss"][b_name][epoch // 5] = b_losses[b_name] / (test_batch_num * args.batch_size)
+                baseline_result["test_acc"][b_name][epoch // 5] = b_tf[b_name] / (test_batch_num * args.batch_size)
     # 7. save model param
     dir = f"param/{args.dataset}/alpha=={args.alpha}"
     try:
