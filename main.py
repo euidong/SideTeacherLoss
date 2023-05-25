@@ -56,55 +56,68 @@ def main():
         "default": Model(in_c, in_w, in_h, out_c).to(device),
         "weight-decay": Model(in_c, in_w, in_h, out_c).to(device),
     }
+    # - default와 같은 값으로 초기화
+    for student in students.values():
+        for name, p in student.layers.named_parameters():
+            p.data = torch.nn.Parameter(baselines["default"].layers.get_parameter(name).clone())
+    for name, p in baselines["weight-decay"].layers.named_parameters():
+        p.data = torch.nn.Parameter(baselines["default"].layers.get_parameter(name).clone())
+        
 
     # 4. define optimizer and loss function
     teacher_optimizers = [optim.SGD(teachers[i].parameters(), lr=args.learning_rate)for i in range(args.num_teachers)]
     teacher_loss_fn = torch.nn.CrossEntropyLoss()
 
     # 5. train teacher
-    tot_batch_num = len(train_loader)
-    teacher_batch_num = tot_batch_num // args.num_teachers
-    teacher_result = {
-        "train_loss": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
-        "train_acc": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
-        "test_loss": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
-        "test_acc": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
-    }
-    for epoch in range(args.epoch_num):
-        epoch_losses = np.zeros(args.num_teachers)
-        epoch_tf = np.zeros(args.num_teachers)
-        for cur_batch_num, (X, y) in enumerate(train_loader):
-            X, y = X.to(device), y.to(device)
-            teacher_idx = cur_batch_num // teacher_batch_num
-            if teacher_idx == args.num_teachers:
-                break
-            pred = teachers[teacher_idx](X)
-            loss = teacher_loss_fn(pred, y)
-            teacher_optimizers[teacher_idx].zero_grad()
-            loss.backward()
-            teacher_optimizers[teacher_idx].step()
-            epoch_losses[teacher_idx] += loss.item()
-            epoch_tf[teacher_idx] += (pred.argmax(1) == y).type(torch.float).sum().item()
-        print(f'Epoch {epoch}=====================================')
-        for teacher_idx in range(args.num_teachers):
-            print(f'teacher {teacher_idx} loss: {epoch_losses[teacher_idx] / (teacher_batch_num * args.batch_size):.6f} acc: {epoch_tf[teacher_idx] / (teacher_batch_num * args.batch_size):.6f}')
-        if epoch % 5 == 0:
-            teacher_result["train_loss"][epoch // 5] = epoch_losses / (teacher_batch_num * args.batch_size)
-            teacher_result["train_acc"][epoch // 5] = epoch_tf / (teacher_batch_num * args.batch_size)
-            # test 수행
-            losses = np.zeros(args.num_teachers)
-            tf = np.zeros(args.num_teachers)
-            test_batch_num = len(test_loader)
-            with torch.no_grad():
-                for cur_batch_num, (X, y) in enumerate(test_loader):
-                    X, y = X.to(device), y.to(device)
-                    for teacher_idx in range(args.num_teachers):
-                        pred = teachers[teacher_idx](X)
-                        loss = teacher_loss_fn(pred, y)
-                        losses[teacher_idx] += loss.item()
-                        tf[teacher_idx] += (pred.argmax(1) == y).type(torch.float).sum().item()
-            teacher_result["test_loss"][epoch // 5] = losses / (test_batch_num * args.batch_size)
-            teacher_result["test_acc"][epoch // 5] = tf / (test_batch_num * args.batch_size)
+    # if already exist then use that teacher
+    if os.path.exists(f"param/{args.dataset}/alpha=={args.alpha}"):
+        for idx, teacher in enumerate(teachers):
+            teacher.load(f"param/{args.dataset}/alpha=={args.alpha}/teacher{idx}")
+        print("teacher is successfully loaded")
+    else:
+        tot_batch_num = len(train_loader)
+        teacher_batch_num = tot_batch_num // args.num_teachers
+        teacher_result = {
+            "train_loss": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
+            "train_acc": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
+            "test_loss": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
+            "test_acc": np.zeros((args.epoch_num // 5 + 1, args.num_teachers)),
+        }
+        for epoch in range(args.epoch_num):
+            epoch_losses = np.zeros(args.num_teachers)
+            epoch_tf = np.zeros(args.num_teachers)
+            for cur_batch_num, (X, y) in enumerate(train_loader):
+                X, y = X.to(device), y.to(device)
+                teacher_idx = cur_batch_num // teacher_batch_num
+                if teacher_idx == args.num_teachers:
+                    break
+                pred = teachers[teacher_idx](X)
+                loss = teacher_loss_fn(pred, y)
+                teacher_optimizers[teacher_idx].zero_grad()
+                loss.backward()
+                teacher_optimizers[teacher_idx].step()
+                epoch_losses[teacher_idx] += loss.item()
+                epoch_tf[teacher_idx] += (pred.argmax(1) == y).type(torch.float).sum().item()
+            print(f'Epoch {epoch}=====================================')
+            for teacher_idx in range(args.num_teachers):
+                print(f'teacher {teacher_idx} loss: {epoch_losses[teacher_idx] / (teacher_batch_num * args.batch_size):.6f} acc: {epoch_tf[teacher_idx] / (teacher_batch_num * args.batch_size):.6f}')
+            if epoch % 5 == 0:
+                teacher_result["train_loss"][epoch // 5] = epoch_losses / (teacher_batch_num * args.batch_size)
+                teacher_result["train_acc"][epoch // 5] = epoch_tf / (teacher_batch_num * args.batch_size)
+                # test 수행
+                losses = np.zeros(args.num_teachers)
+                tf = np.zeros(args.num_teachers)
+                test_batch_num = len(test_loader)
+                with torch.no_grad():
+                    for cur_batch_num, (X, y) in enumerate(test_loader):
+                        X, y = X.to(device), y.to(device)
+                        for teacher_idx in range(args.num_teachers):
+                            pred = teachers[teacher_idx](X)
+                            loss = teacher_loss_fn(pred, y)
+                            losses[teacher_idx] += loss.item()
+                            tf[teacher_idx] += (pred.argmax(1) == y).type(torch.float).sum().item()
+                teacher_result["test_loss"][epoch // 5] = losses / (test_batch_num * args.batch_size)
+                teacher_result["test_acc"][epoch // 5] = tf / (test_batch_num * args.batch_size)
     
   
     # 6. train student, base_model, weight_decay_model
@@ -188,9 +201,11 @@ def main():
             for s_name in students.keys():
                 student_result["test_loss"][s_name][epoch // 5] = s_losses[s_name] / (test_batch_num * args.batch_size)
                 student_result["test_acc"][s_name][epoch // 5] = s_tf[s_name] / (test_batch_num * args.batch_size)
+                print(f'[TEST]student {s_name} loss: {s_losses[s_name] / (test_batch_num * args.batch_size):.6f} acc: {s_tf[s_name] / (test_batch_num * args.batch_size):.6f}')
             for b_name in baselines.keys():
                 baseline_result["test_loss"][b_name][epoch // 5] = b_losses[b_name] / (test_batch_num * args.batch_size)
                 baseline_result["test_acc"][b_name][epoch // 5] = b_tf[b_name] / (test_batch_num * args.batch_size)
+                print(f'[TEST]baseline {b_name} loss: {b_losses[b_name] / (test_batch_num * args.batch_size):.6f} acc: {b_tf[b_name] / (test_batch_num * args.batch_size):.6f}')
     # 7. save model param
     dir = f"param/{args.dataset}/alpha=={args.alpha}"
     try:
@@ -198,50 +213,18 @@ def main():
             os.makedirs(dir)
     except OSError:
         print ('Error: Creating directory. ' +  dir)
-
     for i in range(args.num_teachers):
         teachers[i].eval()
-        torch.save(teachers[i].state_dict(), f"{dir}/teacher{i}.pt")
+        teachers[i].save(f"{dir}/teacher{i}")
     for s_name, student in students.items():
         student.eval()
-        torch.save(student.state_dict(), f"{dir}/{s_name}.pt")
+        student.save(f"{dir}/{s_name}")
     for b_name, baseline in baselines.items():
         baseline.eval()
-        torch.save(baseline.state_dict(), f"{dir}/{b_name}.pt")
+        baseline.save(f"{dir}/{b_name}")
     
-    # 8. draw graph
-    dir = f"result/{args.dataset}/alpha=={args.alpha}"
-    try:
-        if not os.path.exists(dir):
-            os.makedirs(dir)
-    except OSError:
-        print ('Error: Creating directory. ' +  dir)
-    plt.figure(figsize=(20,20)) 
-    for s_name in students.keys():
-        plt.plot(student_result["train_loss"][s_name], label=f"{s_name} train loss")
-        plt.plot(student_result["test_loss"][s_name], label=f"{s_name} test loss")
-    for b_name in baselines.keys():
-        plt.plot(baseline_result["train_loss"][b_name], label=f"{b_name} train loss")
-        plt.plot(baseline_result["test_loss"][b_name], label=f"{b_name} test loss")
-    for t in range(args.num_teachers):
-        plt.plot(teacher_result["train_loss"][:, t], label=f"teacher{t} train loss")
-        plt.plot(teacher_result["test_loss"][:, t], label=f"teacher{t} test loss")
-    plt.legend()
-    plt.savefig(f"{dir}/loss.png")
-    plt.clf()
-    for s_name in students.keys():
-        plt.plot(student_result["train_acc"][s_name], label=f"{s_name} train acc")
-        plt.plot(student_result["test_acc"][s_name], label=f"{s_name} test acc")
-    for b_name in baselines.keys():
-        plt.plot(baseline_result["train_acc"][b_name], label=f"{b_name} train acc")
-        plt.plot(baseline_result["test_acc"][b_name], label=f"{b_name} test acc")
-    for t in range(args.num_teachers):
-        plt.plot(teacher_result["train_acc"][:, t], label=f"teacher{t} train acc")
-        plt.plot(teacher_result["test_acc"][:, t], label=f"teacher{t} test acc")
-    plt.legend()
-    plt.savefig(f"{dir}/acc.png")
     
-    # 9. save loss, acc
+    # 8. save loss, acc
     for metric, m in student_result.items():
         for s_name, s in m.items():
             np.save(f"{dir}/{metric}_{s_name}.npy", s)

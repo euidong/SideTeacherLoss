@@ -18,23 +18,13 @@ class Model(nn.Module):
         output = self.layers(x)
         return output
     
-    def save(self, prefix: str = 'model') -> None:
+    def save(self, name: str = 'model') -> None:
         # get file list in param directory and get next index
-        
-        file_list = os.listdir('param')
-        max_idx = -1
-        for file in file_list:
-            try:
-                idx = int(file.split(prefix)[1].split('.')[0])
-                max_idx = max(max_idx, idx)
-            except:
-                continue
-        idx = max_idx + 1
-        torch.save(self.state_dict(), f"param/{prefix}{idx}.pth")
+        torch.save(self.state_dict(), f"{name}.pt")
 
-    def load(self, idx: int, prefix: str = 'model') -> None:
+    def load(self, name: str = 'model') -> None:
         try:
-            self.load_state_dict(torch.load(f"param/{prefix}{idx}.pth"))
+            self.load_state_dict(torch.load(f"{name}.pt"))
         except Exception as e:
             print(e)
-            print(f"Can't load {prefix}{idx}.pth")
+            print(f"Can't load {name}.pt")
