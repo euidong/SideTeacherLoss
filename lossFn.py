@@ -2,12 +2,15 @@ import os
 from model import Model
 import torch
 
+DEFAULT_ALPHA = 0.001
 
 class SideTeacherLoss:
-    def __init__(self, student, base_loss, device, teachers = [], prefix='model', cls=Model, alpha=0.0001, dist: str = "l2-neg") -> None:
+    def __init__(self, student, base_loss, device, teachers = [], prefix='model', cls=Model, alphas=[], dist: str = "l2-neg") -> None:
         self.student = student
         self.base_loss = base_loss
-        self.alpha = alpha
+        self.alphas = alphas
+        for i in range(len(teachers) - len(alphas)):
+            self.alphas.append(DEFAULT_ALPHA)
         self.param_teachers = []
         file_list = os.listdir('param')
         if len(teachers) > 0:
@@ -49,11 +52,11 @@ class SideTeacherLoss:
         loss = self.base_loss(y_pred, y)
         cnt = 0
         for s_p in self.student.parameters():
-            for t_ps in self.param_teachers:
+            for t_idx, t_ps in enumerate(self.param_teachers):
                 if "nuc" in self.dist and len(s_p.shape) != 2:
-                    loss += self.alpha * self.regularizers[self.dist](s_p.view(s_p.shape[0], -1), t_ps[cnt].view(t_ps[cnt].shape[0], -1))
+                    loss += self.alphas[t_idx] * self.regularizers[self.dist](s_p.view(s_p.shape[0], -1), t_ps[cnt].view(t_ps[cnt].shape[0], -1))
                 else:
-                    loss += self.alpha * self.regularizers[self.dist](s_p, t_ps[cnt])
+                    loss += self.alphas[t_idx] * self.regularizers[self.dist](s_p, t_ps[cnt])
             cnt += 1
         return loss
     

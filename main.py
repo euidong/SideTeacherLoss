@@ -127,8 +127,16 @@ def main():
         "weight-decay": optim.SGD(baselines["weight-decay"].parameters(), lr=args.learning_rate, weight_decay=args.alpha)
     }
     
-    student_loss_fns = {s_name: SideTeacherLoss(student, torch.nn.CrossEntropyLoss(), device, alpha=args.alpha, teachers=teachers,dist=s_name) for s_name, student in students.items()}
+    student_loss_fns = {s_name: SideTeacherLoss(student, torch.nn.CrossEntropyLoss(), device, alphas=[args.alpha for _ in range(args.num_teachers)], teachers=teachers,dist=s_name) for s_name, student in students.items()}
     baseline_loss_fn = torch.nn.CrossEntropyLoss()
+
+    for i in range(args.num_teachers):
+        mean_test_acc = teacher_result["test_acc"][:, i].mean()
+        for key in student_loss_fns.keys():
+            if "neg" in key:
+                student_loss_fns[key].alphas[i] = args.alpha * (10 * (1 - mean_test_acc))
+            else:
+                student_loss_fns[key].alphas[i] = args.alpha * (10 * mean_test_acc)
 
     student_result = {
         "train_loss": {s_name: np.zeros(args.epoch_num // 5 + 1) for s_name in students.keys()},
@@ -225,6 +233,12 @@ def main():
     
     
     # 8. save loss, acc
+    dir = f"result/{args.dataset}/alpha=={args.alpha}"
+    try:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    except OSError:
+        print ('Error: Creating directory. ' +  dir)
     for metric, m in student_result.items():
         for s_name, s in m.items():
             np.save(f"{dir}/{metric}_{s_name}.npy", s)
