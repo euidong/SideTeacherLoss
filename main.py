@@ -225,6 +225,12 @@ def main():
     
     
     # 8. save loss, acc
+    dir = f"result/{args.dataset}/alpha=={args.alpha}"
+    try:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+    except OSError:
+        print ('Error: Creating directory. ' +  dir)
     for metric, m in student_result.items():
         for s_name, s in m.items():
             np.save(f"{dir}/{metric}_{s_name}.npy", s)
