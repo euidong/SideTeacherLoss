@@ -49,11 +49,18 @@ class SideTeacherLoss:
         loss = self.base_loss(y_pred, y)
         cnt = 0
         for s_p in self.student.parameters():
+            teacher_losses = []
+
             for t_ps in self.param_teachers:
                 if "nuc" in self.dist and len(s_p.shape) != 2:
-                    loss += self.alpha * self.regularizers[self.dist](s_p.view(s_p.shape[0], -1), t_ps[cnt].view(t_ps[cnt].shape[0], -1))
+                    reg = self.alpha * self.regularizers[self.dist](s_p.view(s_p.shape[0], -1), t_ps[cnt].view(t_ps[cnt].shape[0], -1))
+                    teacher_losses.append(reg.item())
                 else:
-                    loss += self.alpha * self.regularizers[self.dist](s_p, t_ps[cnt])
+                    reg = self.alpha * self.regularizers[self.dist](s_p, t_ps[cnt])
+                    teacher_losses.append(reg.item())
+
+            teacher_loss_tensor = torch.FloatTensor(teacher_losses)
+            loss += self.alpha * torch.max(teacher_loss_tensor)
             cnt += 1
         return loss
     
