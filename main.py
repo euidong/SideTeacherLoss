@@ -6,13 +6,12 @@ import torch.optim as optim
 import os
 import numpy as np
 import argparse
-import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(
     prog='SideTeacher',
     description='imulate SideTeacher Effect'
 )
-parser.add_argument('--dataset', type=str, default='mnist', help='dataset name(you can select cifar10 , cifar100, mnist, fashio_nmnist)[default: mnist]')
+parser.add_argument('--dataset', type=str, default='cifar100', help='dataset name(you can select cifar10 , cifar100, mnist, fashio_nmnist)[default: cifar100]')
 parser.add_argument('--alpha', type=float, default=0.005, help='alpha value[default: 0.005]')
 parser.add_argument('--num_teachers', type=int, default=10, help='number of teachers[default: 10]')
 parser.add_argument('--batch_size', type=int, default=64, help='batch size[default: 64]')
